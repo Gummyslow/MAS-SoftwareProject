@@ -38,7 +38,7 @@ class FeatureAgent(FraudBaseAgent):
 
     async def setup(self):
         self.log("Starting up")
-        self.encoders = load_label_encoders() if True else {}
+        self.encoders = load_label_encoders()
 
         tmpl = Template()
         tmpl.set_metadata("performative", "request")

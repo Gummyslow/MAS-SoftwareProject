@@ -50,6 +50,8 @@ class ModelAgent(FraudBaseAgent):
     async def setup(self):
         self.log("Starting up – loading model")
         self.model = load_model()
+        if self.model is None:
+            self.log("WARNING: no trained model found – scores will default to 0.5", "warning")
 
         tmpl = Template()
         tmpl.set_metadata("performative", "request")

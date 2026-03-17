@@ -25,7 +25,10 @@
       "Bash(D:/faculty/mlp/mlp_agent/venv/Scripts/python.exe -c \"\nfrom spade.xmpp_client import XMPPClient\nfrom slixmpp import JID\nc = XMPPClient\\(JID\\('test@localhost'\\), 'pass', False, False\\)\ntry:\n    print\\(c['feature_mechanisms'].unencrypted_plain\\)\nexcept Exception as e:\n    print\\(f'Error: {e}'\\)\nprint\\(type\\(c.plugin\\)\\)\n\")",
       "Bash(timeout 20 venv/Scripts/python.exe -u -c \":*)",
       "Bash(timeout 15 venv/Scripts/python.exe -u -c \":*)",
-      "Bash(timeout 8 venv/Scripts/python.exe -u -c \":*)"
+      "Bash(timeout 8 venv/Scripts/python.exe -u -c \":*)",
+      "Bash(ls D:/faculty/mlp/mlp_agent/*.csv)",
+      "Bash(timeout 60 venv/Scripts/python.exe -u scripts/run_spade.py)",
+      "Bash(timeout 30 venv/Scripts/python.exe -u scripts/run_spade.py)"
     ]
   }
 }

@@ -19,7 +19,10 @@ def save_model(model, path: str | Path = XGB_MODEL_PATH) -> None:
 
 
 def load_model(path: str | Path = XGB_MODEL_PATH):
-    with open(path, "rb") as f:
+    p = Path(path)
+    if not p.exists() or p.stat().st_size == 0:
+        return None
+    with open(p, "rb") as f:
         return pickle.load(f)
 
 
@@ -29,7 +32,10 @@ def save_label_encoders(encoders: dict, path: str | Path = LABEL_ENC_PATH) -> No
 
 
 def load_label_encoders(path: str | Path = LABEL_ENC_PATH) -> dict:
-    with open(path, "rb") as f:
+    p = Path(path)
+    if not p.exists() or p.stat().st_size == 0:
+        return {}
+    with open(p, "rb") as f:
         return pickle.load(f)
 
 

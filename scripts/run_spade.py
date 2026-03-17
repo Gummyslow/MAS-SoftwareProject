@@ -1,25 +1,20 @@
 """
-Start all SPADE fraud detection agents.
+Start all SPADE fraud detection agents using the embedded XMPP server.
 
-Prerequisites
--------------
-1. An XMPP server must be running (see docker-compose.yml at project root).
-2. All agent JIDs must be registered on that server.
-   The prosody docker image auto-creates accounts, so no manual steps needed.
+No external XMPP server or Docker required – SPADE's built-in pyjabber
+server is started automatically.
 
 Usage
 -----
     python scripts/run_spade.py
-
-The script starts all 8 agents and blocks until Ctrl-C.
 """
 
-import asyncio
-import signal
 import sys
 
 # Add project root to path so fraud_mas is importable
 sys.path.insert(0, __import__("pathlib").Path(__file__).resolve().parent.parent.__str__())
+
+from spade.container import run_container
 
 from fraud_mas.agents.behavioral_agent import create_behavioral_agent
 from fraud_mas.agents.feature_agent    import create_feature_agent
@@ -32,6 +27,8 @@ from fraud_mas.agents.orchestrator     import create_orchestrator
 
 
 async def main():
+    import asyncio
+
     agents = [
         create_feature_agent(),
         create_behavioral_agent(),
@@ -43,23 +40,18 @@ async def main():
         create_orchestrator(),
     ]
 
-    print("Starting all SPADE agents...")
+    print("Starting all SPADE agents (embedded XMPP server)...")
     for agent in agents:
         await agent.start(auto_register=True)
-        print(f"  ✓ {agent.jid}")
+        print(f"  + {agent.jid}")
 
     print("\nAll agents running. Press Ctrl-C to stop.\n")
 
-    # Keep alive until interrupted
-    stop_event = asyncio.Event()
-
-    def _shutdown(*_):
-        stop_event.set()
-
-    signal.signal(signal.SIGINT,  _shutdown)
-    signal.signal(signal.SIGTERM, _shutdown)
-
-    await stop_event.wait()
+    try:
+        while True:
+            await asyncio.sleep(1)
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        pass
 
     print("\nStopping agents...")
     for agent in agents:
@@ -68,4 +60,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    run_container(main(), embedded_xmpp_server=True)
