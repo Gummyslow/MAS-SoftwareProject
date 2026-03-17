@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show:*)",
+      "Bash(cd:*)",
+      "Bash(D:/faculty/mlp/mlp_agent/venv/Scripts/pip.exe install:*)",
+      "Bash(grep:*)",
+      "Bash(D:/faculty/mlp/mlp_agent/venv/Scripts/pip.exe index:*)",
+      "Bash(D:/faculty/mlp/mlp_agent/venv/Scripts/python.exe -c \"from spade.agent import Agent; print\\('OK'\\)\" 2>&1)",
+      "Bash(D:/faculty/mlp/mlp_agent/venv/Scripts/python.exe -c \"from fraud_mas.agents._spade_compat import Agent, _BACKEND; print\\(_BACKEND\\)\" 2>&1)",
+      "Bash(docker manifest:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker exec:*)",
+      "Bash(python:*)",
+      "Bash(D:/faculty/mlp/mlp_agent/venv/Scripts/python.exe -c \"import inspect; from slixmpp import ClientXMPP; print\\(inspect.signature\\(ClientXMPP.connect\\)\\)\")",
+      "Bash(D:/faculty/mlp/mlp_agent/venv/Scripts/python.exe -c \"\nfrom slixmpp import ClientXMPP\nc = ClientXMPP\\('test@localhost', 'pass'\\)\nattrs = [a for a in dir\\(c\\) if 'ssl' in a.lower\\(\\) or 'tls' in a.lower\\(\\) or 'starttls' in a.lower\\(\\)]\nprint\\(attrs\\)\n\")",
+      "Bash(venv/Scripts/python.exe scripts/run_spade.py)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(timeout 10 venv/Scripts/python.exe -u scripts/run_spade.py)",
+      "Bash(timeout 25 venv/Scripts/python.exe -u scripts/run_spade.py)",
+      "Bash(head -20 grep -rn \"sasl_mech\\\\|SASL_FAIL\\\\|no_auth\\\\|plain\" D:/faculty/mlp/mlp_agent/venv/lib/site-packages/slixmpp/basexmpp.py)",
+      "Bash(timeout 20 venv/Scripts/python.exe -u scripts/run_spade.py)",
+      "Bash(D:/faculty/mlp/mlp_agent/venv/Scripts/python.exe -c \"\nfrom spade.xmpp_client import XMPPClient\nfrom slixmpp import JID\nc = XMPPClient\\(JID\\('test@localhost'\\), 'pass', False, False\\)\ntry:\n    print\\(c['feature_mechanisms'].unencrypted_plain\\)\nexcept Exception as e:\n    print\\(f'Error: {e}'\\)\nprint\\(type\\(c.plugin\\)\\)\n\")",
+      "Bash(timeout 20 venv/Scripts/python.exe -u -c \":*)",
+      "Bash(timeout 15 venv/Scripts/python.exe -u -c \":*)",
+      "Bash(timeout 8 venv/Scripts/python.exe -u -c \":*)"
+    ]
+  }
+}

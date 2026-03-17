@@ -1,0 +1,10 @@
+openai
+langfuse
+xgboost
+scikit-learn
+pandas
+numpy
+networkx
+python-dotenv
+streamlit
+plotly

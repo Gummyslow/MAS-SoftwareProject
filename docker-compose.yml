@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  xmpp:
+    image: prosody/prosody:latest
+    container_name: fraud_xmpp
+    ports:
+      - "5222:5222"   # client-to-server
+      - "5269:5269"   # server-to-server
+      - "5280:5280"   # HTTP / admin
+    environment:
+      LOCAL_DOMAIN: localhost
+    volumes:
+      - ./prosody.cfg.lua:/etc/prosody/prosody.cfg.lua:ro
+    restart: unless-stopped
