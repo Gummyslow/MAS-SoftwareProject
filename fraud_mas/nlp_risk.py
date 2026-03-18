@@ -34,9 +34,11 @@ def compute_nlp_signals(df: pd.DataFrame, text_col: str = "merchant") -> pd.Data
 
     Signals
     -------
-    nlp_keyword_score    : fraction of high-risk keywords matched [0,1]
-    nlp_obfuscation      : fraction of obfuscated characters [0,1]
+    nlp_keyword_score    : high-risk keyword score from merchant name [0,1]
+    nlp_obfuscation      : obfuscated character fraction in merchant name [0,1]
     nlp_all_caps         : 1 if merchant name is all-caps (common in fraud)
+    nlp_sms_score        : keyword score from sms_text column (if present) [0,1]
+    nlp_mail_score       : keyword score from mail_text column (if present) [0,1]
     nlp_score            : composite [0, 1]
     """
     df = df.copy()
@@ -45,19 +47,23 @@ def compute_nlp_signals(df: pd.DataFrame, text_col: str = "merchant") -> pd.Data
         df["nlp_keyword_score"] = 0.0
         df["nlp_obfuscation"]   = 0.0
         df["nlp_all_caps"]      = 0
-        df["nlp_score"]         = 0.0
-        return df
+    else:
+        df["nlp_keyword_score"] = df[text_col].apply(_risk_keyword_score)
+        df["nlp_obfuscation"]   = df[text_col].apply(_obfuscation_score)
+        df["nlp_all_caps"]      = df[text_col].apply(
+            lambda t: int(isinstance(t, str) and t == t.upper() and len(t) > 3)
+        )
 
-    df["nlp_keyword_score"] = df[text_col].apply(_risk_keyword_score)
-    df["nlp_obfuscation"]   = df[text_col].apply(_obfuscation_score)
-    df["nlp_all_caps"]      = df[text_col].apply(
-        lambda t: int(isinstance(t, str) and t == t.upper() and len(t) > 3)
-    )
+    # SMS and mail text (added by load_and_merge_dataset if available)
+    df["nlp_sms_score"]  = df["sms_text"].apply(_risk_keyword_score)  if "sms_text"  in df.columns else 0.0
+    df["nlp_mail_score"] = df["mail_text"].apply(_risk_keyword_score) if "mail_text" in df.columns else 0.0
 
     df["nlp_score"] = (
-        0.55 * df["nlp_keyword_score"] +
-        0.25 * df["nlp_obfuscation"] +
-        0.20 * df["nlp_all_caps"]
+        0.40 * df["nlp_keyword_score"] +
+        0.15 * df["nlp_obfuscation"] +
+        0.15 * df["nlp_all_caps"] +
+        0.15 * df["nlp_sms_score"] +
+        0.15 * df["nlp_mail_score"]
     )
 
     return df

@@ -43,6 +43,48 @@ def _model_trained() -> bool:
     return XGB_MODEL_PATH.exists() and LABEL_ENC_PATH.exists()
 
 
+def _file_uploaders(key_prefix: str, require_transactions: bool = True):
+    """Render the 5-file upload widgets and return the uploaded file objects."""
+    st.markdown("#### Data files")
+    st.caption(
+        "Upload `transactions.csv` (required) plus the optional enrichment files. "
+        "The supplementary files unlock geo, network, and communication NLP signals."
+    )
+    col_a, col_b = st.columns(2)
+    with col_a:
+        txn   = st.file_uploader("transactions.csv ✱ required",
+                                 type="csv", key=f"{key_prefix}_txn")
+        users = st.file_uploader("users.json (optional – device/email/phone)",
+                                 type="json", key=f"{key_prefix}_users")
+        locs  = st.file_uploader("locations.json (optional – lat/lon)",
+                                 type="json", key=f"{key_prefix}_locs")
+    with col_b:
+        sms   = st.file_uploader("sms.json (optional – SMS text for NLP)",
+                                 type="json", key=f"{key_prefix}_sms")
+        mails = st.file_uploader("mails.json (optional – email text for NLP)",
+                                 type="json", key=f"{key_prefix}_mails")
+    return txn, users, locs, sms, mails
+
+
+def _load_merged(txn, users, locs, sms, mails) -> pd.DataFrame:
+    from fraud_mas.data_io import load_and_merge_dataset
+    df = load_and_merge_dataset(
+        transactions_path=txn,
+        users_path=users,
+        locations_path=locs,
+        sms_path=sms,
+        mails_path=mails,
+    )
+    extras = []
+    if users: extras.append("users")
+    if locs:  extras.append("locations")
+    if sms:   extras.append("sms")
+    if mails: extras.append("mails")
+    note = f" + {', '.join(extras)}" if extras else ""
+    st.write(f"Loaded **{len(df):,}** rows × **{df.shape[1]}** columns (transactions{note})")
+    return df
+
+
 # ── sidebar ─────────────────────────────────────────────────────────────────
 st.sidebar.title("🔍 Fraud Detection MAS")
 st.sidebar.markdown("Multi-Agent System with LLM Orchestration")
@@ -63,9 +105,9 @@ else:
 # ── Train page ───────────────────────────────────────────────────────────────
 if page == "Train":
     st.title("Train Model")
-    st.markdown("Upload a labelled CSV to train the XGBoost ensemble.")
+    st.markdown("Upload the challenge data files to train the XGBoost ensemble.")
 
-    uploaded = st.file_uploader("Training CSV (must have a `label` column)", type="csv")
+    txn, users, locs, sms, mails = _file_uploaders("train")
 
     label_col = st.text_input("Label column name", value="label")
     col1, col2 = st.columns(2)
@@ -74,12 +116,11 @@ if page == "Train":
     with col2:
         max_depth = st.slider("Max depth", 3, 10, 6)
 
-    if st.button("Train", type="primary", disabled=uploaded is None):
+    if st.button("Train", type="primary", disabled=txn is None):
         if not _imports_ok():
             st.stop()
 
-        df = pd.read_csv(uploaded)
-        st.write(f"Loaded **{len(df):,}** rows × **{df.shape[1]}** columns")
+        df = _load_merged(txn, users, locs, sms, mails)
 
         if label_col not in df.columns:
             st.error(f"Column `{label_col}` not found. Available: {list(df.columns)}")
@@ -134,13 +175,13 @@ if page == "Train":
 # ── Detect page ──────────────────────────────────────────────────────────────
 elif page == "Detect":
     st.title("Run Fraud Detection")
-    st.markdown("Upload a test CSV and run all agents + LLM orchestration.")
+    st.markdown("Upload the challenge data files and run all agents + LLM orchestration.")
 
     if not _model_trained():
         st.warning("No trained model found. Go to **Train** first.")
         st.stop()
 
-    uploaded = st.file_uploader("Test CSV", type="csv")
+    txn, users, locs, sms, mails = _file_uploaders("detect")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -148,12 +189,11 @@ elif page == "Detect":
     with col2:
         id_col = st.text_input("Transaction ID column", value="transaction_id")
 
-    if st.button("Run Detection", type="primary", disabled=uploaded is None):
+    if st.button("Run Detection", type="primary", disabled=txn is None):
         if not _imports_ok():
             st.stop()
 
-        df = pd.read_csv(uploaded)
-        st.write(f"Loaded **{len(df):,}** rows")
+        df = _load_merged(txn, users, locs, sms, mails)
 
         model, encoders = _load_model_and_encoders()
 
@@ -212,15 +252,7 @@ elif page == "Detect":
 # ── SPADE Agents page ────────────────────────────────────────────────────────
 elif page == "SPADE Agents":
     st.title("SPADE Multi-Agent System")
-    st.markdown("Run the full agent pipeline over XMPP using the SPADE framework.")
-
-    st.info(
-        "**Prerequisites:** the XMPP server must be running.\n\n"
-        "```bash\n"
-        "docker compose up -d          # start prosody XMPP server\n"
-        "python scripts/run_spade.py   # start all 8 SPADE agents\n"
-        "```"
-    )
+    st.markdown("Run the full agent pipeline using the SPADE framework (asyncio mock, no XMPP server needed).")
 
     st.divider()
     st.subheader("Agent roster")
@@ -231,7 +263,7 @@ elif page == "SPADE Agents":
         "feature":      "Agent 1 – statistical feature engineering",
         "behavioral":   "Agent 2 – velocity, new-merchant, large-jump signals",
         "geo":          "Agent 3 – country risk, impossible travel",
-        "nlp":          "Agent 4 – keyword risk, obfuscation scoring",
+        "nlp":          "Agent 4 – keyword risk, obfuscation, SMS/mail scoring",
         "network":      "Agent 5 – shared device/IP, graph degree",
         "model":        "XGBoost ensemble scoring + threshold routing",
         "llm":          "Claude LLM – borderline case final decision",
@@ -251,24 +283,22 @@ elif page == "SPADE Agents":
         st.warning("No trained model found. Go to **Train** first.")
         st.stop()
 
-    uploaded_spade = st.file_uploader("Test CSV", type="csv", key="spade_upload")
-    id_col_spade   = st.text_input("Transaction ID column", value="transaction_id", key="spade_id")
+    txn_s, users_s, locs_s, sms_s, mails_s = _file_uploaders("spade")
+    id_col_spade = st.text_input("Transaction ID column", value="transaction_id", key="spade_id")
 
-    if st.button("Run via SPADE agents", type="primary", disabled=uploaded_spade is None):
+    if st.button("Run via SPADE agents", type="primary", disabled=txn_s is None):
         if not _imports_ok():
             st.stop()
 
-        df = pd.read_csv(uploaded_spade)
-        st.write(f"Loaded **{len(df):,}** rows")
+        df = _load_merged(txn_s, users_s, locs_s, sms_s, mails_s)
 
         try:
-            import asyncio
-            from fraud_mas.agents.spade_pipeline import run_spade_pipeline
+            from fraud_mas.agents.spade_pipeline import run_spade_pipeline_sync
             from fraud_mas.pipeline import write_submission_file
 
-            with st.spinner("Agents communicating over XMPP..."):
+            with st.spinner("Agents communicating via SPADE (asyncio)..."):
                 t0 = time.perf_counter()
-                results = asyncio.run(run_spade_pipeline(df, verbose=False))
+                results = run_spade_pipeline_sync(df, verbose=False)
                 elapsed = time.perf_counter() - t0
 
             write_submission_file(results, id_col=id_col_spade)
@@ -302,13 +332,8 @@ elif page == "SPADE Agents":
 
         except Exception as exc:
             st.error(f"SPADE pipeline error: {exc}")
-            st.markdown(
-                "Make sure the XMPP server and agents are running:\n"
-                "```bash\n"
-                "docker compose up -d\n"
-                "python scripts/run_spade.py\n"
-                "```"
-            )
+            import traceback
+            st.code(traceback.format_exc())
 
 
 # ── Results page ─────────────────────────────────────────────────────────────

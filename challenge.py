@@ -3,14 +3,20 @@ challenge.py – Entry point for the Fraud Detection MAS challenge.
 
 Usage
 -----
-# Train on labelled data and run inference on test set:
-  python challenge.py --train data/train.csv --test data/test.csv
+# Train on labelled data (single CSV or full 5-file dataset):
+  python challenge.py --train transactions.csv
+  python challenge.py --train transactions.csv --users users.json --locations locations.json \\
+                      --sms sms.json --mails mails.json
 
 # Inference only (model already trained):
-  python challenge.py --test data/test.csv
+  python challenge.py --test transactions.csv
+  python challenge.py --test transactions.csv --users users.json --locations locations.json \\
+                      --sms sms.json --mails mails.json
 
-# Evaluate on a labelled test set:
-  python challenge.py --test data/test.csv --labels data/test_labels.csv
+# Train + inference + evaluation:
+  python challenge.py --train train.csv --test test.csv --labels labels.csv \\
+                      --users users.json --locations locations.json \\
+                      --sms sms.json --mails mails.json
 """
 
 import argparse
@@ -20,6 +26,7 @@ import pandas as pd
 
 from fraud_mas.config import SUBMISSION_PATH, XGB_MODEL_PATH, LABEL_ENC_PATH
 from fraud_mas.data_io import (
+    load_and_merge_dataset,
     load_csv,
     load_label_encoders,
     load_model,
@@ -39,9 +46,16 @@ from fraud_mas.pipeline import run_pipeline, write_submission_file
 # Training
 # ---------------------------------------------------------------------------
 
-def run_training(train_path: str) -> None:
-    print(f"[challenge] Loading training data from {train_path}...")
-    df = load_csv(train_path)
+def run_training(args) -> None:
+    print(f"[challenge] Loading training data from {args.train}...")
+    df = load_and_merge_dataset(
+        transactions_path=args.train,
+        users_path=args.users,
+        locations_path=args.locations,
+        sms_path=args.sms,
+        mails_path=args.mails,
+    )
+    print(f"[challenge] Loaded {len(df):,} rows × {df.shape[1]} columns")
 
     print("[challenge] Running agents on training data...")
     df, encoders = engineer_features(df, fit=True)
@@ -69,9 +83,16 @@ def run_training(train_path: str) -> None:
 # Inference
 # ---------------------------------------------------------------------------
 
-def run_inference(test_path: str, output_path: str | None = None) -> pd.DataFrame:
-    print(f"[challenge] Loading test data from {test_path}...")
-    df = load_csv(test_path)
+def run_inference(args, output_path: str | None = None) -> pd.DataFrame:
+    print(f"[challenge] Loading test data from {args.test}...")
+    df = load_and_merge_dataset(
+        transactions_path=args.test,
+        users_path=args.users,
+        locations_path=args.locations,
+        sms_path=args.sms,
+        mails_path=args.mails,
+    )
+    print(f"[challenge] Loaded {len(df):,} rows × {df.shape[1]} columns")
 
     model    = load_model()
     encoders = load_label_encoders()
@@ -111,10 +132,16 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Fraud Detection Multi-Agent System – Challenge Runner"
     )
-    parser.add_argument("--train",  type=str, help="Path to labelled training CSV")
-    parser.add_argument("--test",   type=str, help="Path to test CSV for inference")
-    parser.add_argument("--labels", type=str, help="Path to ground-truth labels CSV (for evaluation)")
-    parser.add_argument("--output", type=str, help="Output path for submission file", default=None)
+    # Core data files
+    parser.add_argument("--train",     type=str, help="Path to labelled training CSV (transactions)")
+    parser.add_argument("--test",      type=str, help="Path to test CSV (transactions) for inference")
+    parser.add_argument("--labels",    type=str, help="Path to ground-truth labels CSV (for evaluation)")
+    parser.add_argument("--output",    type=str, help="Output path for submission file", default=None)
+    # Supplementary data files (all optional)
+    parser.add_argument("--users",     type=str, default=None, help="Path to users.json")
+    parser.add_argument("--locations", type=str, default=None, help="Path to locations.json")
+    parser.add_argument("--sms",       type=str, default=None, help="Path to sms.json")
+    parser.add_argument("--mails",     type=str, default=None, help="Path to mails.json")
     return parser.parse_args(argv)
 
 
@@ -126,10 +153,10 @@ def main(argv=None) -> None:
         sys.exit(1)
 
     if args.train:
-        run_training(args.train)
+        run_training(args)
 
     if args.test:
-        results = run_inference(args.test, output_path=args.output)
+        results = run_inference(args, output_path=args.output)
 
         if args.labels:
             run_evaluation(results, args.labels)

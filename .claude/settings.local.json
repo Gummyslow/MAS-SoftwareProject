@@ -28,7 +28,8 @@
       "Bash(timeout 8 venv/Scripts/python.exe -u -c \":*)",
       "Bash(ls D:/faculty/mlp/mlp_agent/*.csv)",
       "Bash(timeout 60 venv/Scripts/python.exe -u scripts/run_spade.py)",
-      "Bash(timeout 30 venv/Scripts/python.exe -u scripts/run_spade.py)"
+      "Bash(timeout 30 venv/Scripts/python.exe -u scripts/run_spade.py)",
+      "Bash(find /d/faculty/mlp/mlp_agent -name *.md -o -name README*)"
     ]
   }
 }
