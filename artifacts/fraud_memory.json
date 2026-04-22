@@ -1,1 +1,14 @@
-{}
+{
+  "fraud_patterns": [
+    "The transaction exhibits a high community risk score combined with a new recipient, suggesting potential involvement in a fraudulent network despite low individual behavioral scores.",
+    "LLM error: 404 models/gemini-2.5-pro-preview-03-25 is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "The transaction exhibits a significant behavioral jump combined with a high community risk score, suggesting potential involvement in a fraudulent network despite low individual risk indicators.",
+    "The combination of a new recipient, a large transaction amount jump, and a high community risk score indicates a high probability of account takeover or unauthorized transfer.",
+    "The combination of a new recipient, a large transaction amount jump, and a high community risk score suggests potential account takeover despite the low individual risk scores.",
+    "The combination of a large transaction jump, a new recipient, and a high community risk score indicates a high probability of account takeover or unauthorized transfer.",
+    "The combination of a new recipient, a large transaction amount jump, and a high community risk score suggests potential account takeover despite the low NLP and geo risk scores.",
+    "The combination of a large transaction jump, a new recipient, and a high community risk score suggests a potential account takeover or unauthorized transfer despite the low individual risk scores.",
+    "The combination of a new recipient, a large transaction jump, and a high community risk score indicates a high probability of account takeover or unauthorized transfer.",
+    "The combination of a new recipient, a significant transaction amount jump, and a high community risk score indicates a high probability of account takeover or unauthorized transfer."
+  ]
+}

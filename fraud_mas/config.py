@@ -12,13 +12,16 @@ ARTIFACTS_DIR   = BASE_DIR / "artifacts"
 DATA_DIR        = BASE_DIR / "data"
 
 XGB_MODEL_PATH      = MODELS_DIR / "xgb_model.pkl"
+FEATURE_COLS_PATH   = ARTIFACTS_DIR / "feature_cols.pkl"
 LABEL_ENC_PATH      = ARTIFACTS_DIR / "label_encoders.pkl"
 FRAUD_MEMORY_PATH   = ARTIFACTS_DIR / "fraud_memory.json"
 SUBMISSION_PATH     = ARTIFACTS_DIR / "submission.txt"
 
-# OpenRouter
-OPENROUTER_API_KEY  = os.getenv("OPENROUTER_API_KEY", "")
-LLM_MODEL           = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5")
+# Google Cloud Generative AI
+GOOGLE_API_KEY      = os.getenv("GOOGLE_API_KEY", "")
+LLM_MODEL_CHEAP     = os.getenv("LLM_MODEL_CHEAP",  "gemini-3.1-flash-lite-preview")
+LLM_MODEL_STRONG    = os.getenv("LLM_MODEL_STRONG", "gemini-3-flash-preview")
+LLM_CONFIDENCE_MIN  = float(os.getenv("LLM_CONFIDENCE_MIN", "0.70"))  # escalate to strong if below this
 
 # Langfuse
 LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")

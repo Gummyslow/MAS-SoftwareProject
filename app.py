@@ -40,7 +40,10 @@ def _load_model_and_encoders():
 
 def _model_trained() -> bool:
     from fraud_mas.config import XGB_MODEL_PATH, LABEL_ENC_PATH
-    return XGB_MODEL_PATH.exists() and LABEL_ENC_PATH.exists()
+    return (
+        XGB_MODEL_PATH.exists() and XGB_MODEL_PATH.stat().st_size > 0
+        and LABEL_ENC_PATH.exists() and LABEL_ENC_PATH.stat().st_size > 0
+    )
 
 
 def _file_uploaders(key_prefix: str, require_transactions: bool = True):
@@ -92,7 +95,7 @@ st.sidebar.divider()
 
 page = st.sidebar.radio(
     "Navigate",
-    ["Train", "Detect", "SPADE Agents", "Results", "Memory"],
+    ["Detect", "SPADE Agents", "Results", "Memory"],
     index=0,
 )
 
@@ -102,84 +105,10 @@ if _model_trained():
 else:
     st.sidebar.warning("Model: not trained yet")
 
-# ── Train page ───────────────────────────────────────────────────────────────
-if page == "Train":
-    st.title("Train Model")
-    st.markdown("Upload the challenge data files to train the XGBoost ensemble.")
-
-    txn, users, locs, sms, mails = _file_uploaders("train")
-
-    label_col = st.text_input("Label column name", value="label")
-    col1, col2 = st.columns(2)
-    with col1:
-        n_estimators = st.slider("XGBoost estimators", 100, 1000, 400, step=50)
-    with col2:
-        max_depth = st.slider("Max depth", 3, 10, 6)
-
-    if st.button("Train", type="primary", disabled=txn is None):
-        if not _imports_ok():
-            st.stop()
-
-        df = _load_merged(txn, users, locs, sms, mails)
-
-        if label_col not in df.columns:
-            st.error(f"Column `{label_col}` not found. Available: {list(df.columns)}")
-            st.stop()
-
-        from fraud_mas.config import XGB_PARAMS
-        XGB_PARAMS.update({"n_estimators": n_estimators, "max_depth": max_depth})
-
-        from fraud_mas.behavioral import compute_behavioral_signals
-        from fraud_mas.features import engineer_features
-        from fraud_mas.geo import compute_geo_signals
-        from fraud_mas.model import evaluate, predict_proba, train
-        from fraud_mas.network_analysis import compute_network_signals
-        from fraud_mas.nlp_risk import compute_nlp_signals
-        from fraud_mas.data_io import save_label_encoders
-
-        progress = st.progress(0, text="Running Agent 1 – Feature Engineering...")
-        df, encoders = engineer_features(df, fit=True)
-        save_label_encoders(encoders)
-        progress.progress(20, text="Running Agent 2 – Behavioral...")
-        df = compute_behavioral_signals(df)
-        progress.progress(40, text="Running Agent 3 – Geo...")
-        df = compute_geo_signals(df)
-        progress.progress(60, text="Running Agent 4 – NLP...")
-        df = compute_nlp_signals(df)
-        progress.progress(80, text="Running Agent 5 – Network...")
-        df = compute_network_signals(df)
-        progress.progress(90, text="Training XGBoost ensemble...")
-
-        model = train(df, label_col=label_col)
-        scores = predict_proba(df, model)
-        metrics = evaluate(df, scores, label_col=label_col)
-
-        progress.progress(100, text="Done!")
-        _load_model_and_encoders.clear()
-
-        st.success("Model trained successfully!")
-        m1, m2 = st.columns(2)
-        m1.metric("ROC-AUC", metrics["roc_auc"])
-        m2.metric("F1 Score", metrics["f1"])
-
-        # Score distribution
-        fig = px.histogram(
-            x=scores, nbins=50,
-            labels={"x": "Fraud probability"},
-            title="Score distribution (training set)",
-            color_discrete_sequence=["#e05c5c"],
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-
 # ── Detect page ──────────────────────────────────────────────────────────────
-elif page == "Detect":
+if page == "Detect":
     st.title("Run Fraud Detection")
     st.markdown("Upload the challenge data files and run all agents + LLM orchestration.")
-
-    if not _model_trained():
-        st.warning("No trained model found. Go to **Train** first.")
-        st.stop()
 
     txn, users, locs, sms, mails = _file_uploaders("detect")
 
@@ -196,6 +125,7 @@ elif page == "Detect":
         df = _load_merged(txn, users, locs, sms, mails)
 
         model, encoders = _load_model_and_encoders()
+        # model may be None (Level 1 — no labels yet); pipeline falls back to rule-based scoring
 
         if not use_llm:
             # Monkey-patch llm_decide to skip API calls
@@ -278,10 +208,6 @@ elif page == "SPADE Agents":
 
     st.divider()
     st.subheader("Run SPADE pipeline")
-
-    if not _model_trained():
-        st.warning("No trained model found. Go to **Train** first.")
-        st.stop()
 
     txn_s, users_s, locs_s, sms_s, mails_s = _file_uploaders("spade")
     id_col_spade = st.text_input("Transaction ID column", value="transaction_id", key="spade_id")

@@ -40,10 +40,10 @@ def compute_geo_signals(df: pd.DataFrame) -> pd.DataFrame:
 
     if has_coords:
         # Distance from user's median home location
-        user_home = df.groupby("user_id")[["latitude", "longitude"]].median().rename(
+        user_home = df.groupby("sender_id")[["latitude", "longitude"]].median().rename(
             columns={"latitude": "home_lat", "longitude": "home_lon"}
         )
-        df = df.merge(user_home, on="user_id", how="left")
+        df = df.merge(user_home, on="sender_id", how="left")
         df["geo_distance_km"] = df.apply(
             lambda r: _haversine_km(r["home_lat"], r["home_lon"], r["latitude"], r["longitude"]),
             axis=1,
@@ -52,10 +52,10 @@ def compute_geo_signals(df: pd.DataFrame) -> pd.DataFrame:
         # Impossible travel between consecutive transactions
         if "timestamp" in df.columns:
             df["_ts"] = pd.to_datetime(df["timestamp"])
-            df = df.sort_values(["user_id", "_ts"])
-            df["_prev_lat"] = df.groupby("user_id")["latitude"].shift(1)
-            df["_prev_lon"] = df.groupby("user_id")["longitude"].shift(1)
-            df["_prev_ts"]  = df.groupby("user_id")["_ts"].shift(1)
+            df = df.sort_values(["sender_id", "_ts"])
+            df["_prev_lat"] = df.groupby("sender_id")["latitude"].shift(1)
+            df["_prev_lon"] = df.groupby("sender_id")["longitude"].shift(1)
+            df["_prev_ts"]  = df.groupby("sender_id")["_ts"].shift(1)
 
             def impossible_travel(row):
                 if pd.isna(row["_prev_lat"]):

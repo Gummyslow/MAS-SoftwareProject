@@ -19,13 +19,15 @@ from fraud_mas.nlp_risk import compute_nlp_signals
 
 # Columns each agent is responsible for (used to merge results back)
 _AGENT_OUTPUT_COLS = {
-    "behavioral": ["behav_velocity_1h", "behav_velocity_24h", "behav_new_merchant",
-                   "behav_large_jump", "behav_score"],
+    "behavioral": ["behav_velocity_1h", "behav_velocity_24h", "behav_new_recipient",
+                   "behav_large_jump", "burst_score", "behav_score"],
     "geo":        ["geo_high_risk_country", "geo_distance_km", "geo_impossible_travel",
                    "geo_score"],
-    "nlp":        ["nlp_keyword_score", "nlp_obfuscation", "nlp_all_caps", "nlp_score"],
+    "nlp":        ["nlp_keyword_score", "nlp_phishing", "nlp_obfuscation",
+                   "nlp_all_caps", "nlp_sms_score", "nlp_mail_score",
+                   "phishing_link_count", "nlp_score"],
     "network":    ["net_shared_device", "net_shared_ip", "net_community_risk",
-                   "net_degree", "net_score"],
+                   "net_degree", "net_new_node_score", "net_score"],
 }
 
 _AGENT_FNS = {
@@ -60,7 +62,8 @@ def _run_agents(df: pd.DataFrame, encoders: dict, verbose: bool = False) -> pd.D
             try:
                 _, result_df = future.result()
                 cols = [c for c in _AGENT_OUTPUT_COLS[name] if c in result_df.columns]
-                df[cols] = result_df[cols].values
+                # reindex to df's index to handle any reordering inside agents
+                df[cols] = result_df[cols].reindex(df.index)
                 if verbose:
                     print(f"[pipeline]   agent '{name}' done")
             except Exception as exc:

@@ -1,4 +1,4 @@
-"""Agent 2 – Behavioral pattern analysis."""
+"""Agent 2 – Behavioral pattern analysis (vectorised, challenge column names)."""
 
 import pandas as pd
 import numpy as np
@@ -6,61 +6,69 @@ import numpy as np
 
 def compute_behavioral_signals(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Adds behavioral risk columns to df (in-place copy).
-
     Signals
     -------
-    behav_velocity_1h   : # transactions by same user in the last hour
-    behav_velocity_24h  : # transactions by same user in the last 24 hours
-    behav_new_merchant  : 1 if this user has never used this merchant before
-    behav_large_jump    : 1 if amount > 3× user's historical mean
+    behav_velocity_1h   : tx count by same sender in last hour
+    behav_velocity_24h  : tx count by same sender in last 24h
+    behav_new_recipient : 1 if sender never sent to this recipient before
+    behav_large_jump    : 1 if amount > 3× sender historical mean
+    burst_score         : card-test + large-jump composite
     behav_score         : composite [0, 1]
     """
     df = df.copy()
 
-    if "timestamp" in df.columns:
-        df["_ts"] = pd.to_datetime(df["timestamp"])
-        df = df.sort_values("_ts")
+    sender_col    = "sender_id"    if "sender_id"    in df.columns else None
+    recipient_col = "recipient_id" if "recipient_id" in df.columns else None
+
+    # ── velocity (vectorised rolling) ───────────────────────────────────────
+    if sender_col and "timestamp" in df.columns:
+        df = df.sort_values([sender_col, "timestamp"]).copy()
+        ts = pd.to_datetime(df["timestamp"])
 
         vel_1h, vel_24h = [], []
-        for idx, row in df.iterrows():
-            user_mask = df["user_id"] == row["user_id"]
-            past_1h  = ((row["_ts"] - df.loc[user_mask, "_ts"]).dt.total_seconds().between(0, 3600))
-            past_24h = ((row["_ts"] - df.loc[user_mask, "_ts"]).dt.total_seconds().between(0, 86400))
-            vel_1h.append(int(past_1h.sum()) - 1)   # exclude self
-            vel_24h.append(int(past_24h.sum()) - 1)
+        for sid, grp in df.groupby(sender_col):
+            t = ts.loc[grp.index]
+            for i, ti in enumerate(t):
+                vel_1h.append(int((t.iloc[:i] >= ti - pd.Timedelta(hours=1)).sum()))
+                vel_24h.append(int((t.iloc[:i] >= ti - pd.Timedelta(hours=24)).sum()))
 
-        df["behav_velocity_1h"]  = [max(0, v) for v in vel_1h]
-        df["behav_velocity_24h"] = [max(0, v) for v in vel_24h]
-        df.drop(columns=["_ts"], inplace=True)
+        df["behav_velocity_1h"]  = vel_1h
+        df["behav_velocity_24h"] = vel_24h
     else:
         df["behav_velocity_1h"]  = 0
         df["behav_velocity_24h"] = 0
 
-    # New-merchant signal
-    if "merchant" in df.columns:
-        seen: dict[str, set] = {}
-        new_merchant_flags = []
-        for _, row in df.iterrows():
-            uid, mer = row["user_id"], row["merchant"]
-            if uid not in seen:
-                seen[uid] = set()
-            new_merchant_flags.append(int(mer not in seen[uid]))
-            seen[uid].add(mer)
-        df["behav_new_merchant"] = new_merchant_flags
+    # ── new-recipient flag ───────────────────────────────────────────────────
+    if sender_col and recipient_col:
+        seen: set = set()
+        flags = []
+        iter_df = df.sort_values("timestamp") if "timestamp" in df.columns else df
+        for _, row in iter_df.iterrows():
+            pair = (row[sender_col], row[recipient_col])
+            flags.append(int(pair not in seen))
+            seen.add(pair)
+        # align back to original index order
+        new_recip = pd.Series(flags, index=iter_df.index)
+        df["behav_new_recipient"] = new_recip.reindex(df.index).fillna(0).astype(int)
     else:
-        df["behav_new_merchant"] = 0
+        df["behav_new_recipient"] = 0
 
-    # Large jump signal
-    user_mean = df.groupby("user_id")["amount"].transform("mean")
-    df["behav_large_jump"] = (df["amount"] > 3 * user_mean).astype(int)
+    # ── large-jump ───────────────────────────────────────────────────────────
+    if sender_col:
+        sender_mean = df.groupby(sender_col)["amount"].transform("mean")
+        df["behav_large_jump"] = (df["amount"] > 3 * sender_mean).astype(int)
+    else:
+        df["behav_large_jump"] = 0
 
-    # Composite score
+    # ── burst score (many tx in 1h) ──────────────────────────────────────────
+    df["burst_score"] = np.clip(df["behav_velocity_1h"] / 5, 0, 1)
+
+    # ── composite score ──────────────────────────────────────────────────────
     df["behav_score"] = (
-        0.30 * np.clip(df["behav_velocity_1h"] / 5, 0, 1) +
-        0.20 * np.clip(df["behav_velocity_24h"] / 20, 0, 1) +
-        0.25 * df["behav_new_merchant"] +
+        0.30 * np.clip(df["behav_velocity_1h"]  / 5,  0, 1) +
+        0.15 * np.clip(df["behav_velocity_24h"] / 20, 0, 1) +
+        0.30 * df["behav_new_recipient"] +
         0.25 * df["behav_large_jump"]
-    )
+    ).clip(0, 1)
 
     return df
